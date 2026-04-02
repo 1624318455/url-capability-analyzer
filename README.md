@@ -35,50 +35,181 @@
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/url-capability-analyzer.git
+git clone https://github.com/1624318455/url-capability-analyzer.git
 cd url-capability-analyzer
-2. Install Python dependencies
-bash
+```
+
+### 2. Install Python dependencies
+
+```bash
 pip install -r requirements.txt
-3. Install as a skill for your AI Agent
-OpenCode: Copy the whole folder to ~/.config/opencode/skills/url-capability-analyzer/
+```
 
-Claude Code: Copy to ~/.claude/skills/url-capability-analyzer/
+### 3. Install as a skill for your AI Agent
 
-Other agents: Refer to their skill installation docs.
+- **OpenCode**: Copy the whole folder to `~/.config/opencode/skills/url-capability-analyzer/`
+- **Claude Code**: Copy to `~/.claude/skills/url-capability-analyzer/`
+- **Other agents**: Refer to their skill installation docs.
 
-4. (Optional) Enable advanced semantic matching
+### 4. (Optional) Enable advanced semantic matching
+
 Set an environment variable:
 
-bash
+```bash
 # For OpenAI
 export OPENAI_API_KEY="sk-..."
 
 # Or for a local embedding model (sentence-transformers)
 export LOCAL_EMBEDDING="all-MiniLM-L6-v2"
-Usage
+```
+
+## Usage
+
 Once installed, simply ask your agent:
 
-text
+```text
 Analyze this Skill: https://github.com/user/awesome-skill
+```
+
 The agent will run the skill and return a report.
 
-Development
-Run tests
-bash
-pytest tests/
-Add a new agent path
-Edit config/agent_paths.json and append:
+### Command Line Usage
 
-json
+```bash
+# Basic analysis
+python scripts/analyze.py https://github.com/user/some-skill
+
+# Save report to file
+python scripts/analyze.py https://github.com/user/some-skill --output report.md
+
+# Use embedding models (requires sentence-transformers)
+python scripts/analyze.py https://github.com/user/some-skill --embedding
+```
+
+## Output Report Example
+
+The generated report includes:
+
+```markdown
+# 🔍 Capability Analysis Report
+
+**Generated:** 2024-04-02 10:30:00
+
+## 📦 Target: example-skill (skill)
+
+- **URL:** https://github.com/user/example-skill
+- **Description:** This skill provides example functionality for testing...
+
+---
+
+## 🔄 Overlap with Local Capabilities
+
+| Local Capability | Type | Agent   | Similarity | Level  | Reason |
+|------------------|------|---------|------------|--------|--------|
+| test-skill       | skill| opencode| 0.92       | high   | Likely duplicate functionality |
+| another-skill    | skill| cursor  | 0.65       | partial| Partial functional overlap |
+
+---
+
+## 🤝 Synergy Possibilities
+
+- **web-scraper** (skill): Target retrieves data → web-scraper can send/notify
+- **data-processor** (mcp): Target searches → data-processor can analyze results
+
+---
+
+## 💡 Recommendation
+
+**❌ Do not install**
+
+*Reason: High overlap with existing capability*
+
+---
+
+## 🚀 Installation Command (if applicable)
+git clone https://github.com/user/example-skill ~/.config/opencode/skills/example-skill
+```
+
+## Configuration
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+# OpenAI API key for semantic matching
+OPENAI_API_KEY=your_key_here
+
+# Local embedding model (overrides OpenAI if set)
+LOCAL_EMBEDDING=all-MiniLM-L6-v2
+
+# Custom skills directory (overrides default scan paths)
+SKILLS_DIR=/path/to/custom/skills
+```
+
+### Agent Paths Configuration
+
+Edit `config/agent_paths.json` to add custom AI agent directories:
+
+```json
 {
   "my-agent": {
     "skills": "~/.my-agent/skills",
     "mcps": "~/.my-agent/mcp_servers"
   }
 }
-License
+```
+
+## Directory Structure
+
+```
+url-capability-analyzer/
+├── .github/workflows/test.yml    # CI configuration
+├── config/                       # Configuration files
+│   └── agent_paths.json          # AI agent directory mappings
+├── scripts/                      # Core Python modules
+│   ├── analyze.py                # Main analysis script
+│   ├── scanner.py                # Local capability scanner
+│   ├── matcher.py                # Similarity and synergy analysis
+│   ├── report.py                 # Report generation
+│   └── utils.py                  # Webpage fetching utilities
+├── templates/                    # Report templates
+│   └── report_template.md        # Markdown report template
+├── tests/                        # Unit tests
+│   ├── test_scanner.py           # Scanner tests
+│   └── fixtures/                 # Test fixtures
+├── SKILL.md                      # Skill definition
+├── README.md                     # This file
+├── requirements.txt              # Python dependencies
+├── setup.py                      # Package setup
+└── LICENSE                       # MIT License
+```
+
+## Development
+
+### Run tests
+
+```bash
+pytest tests/
+```
+
+### Add a new agent path
+
+Edit `config/agent_paths.json` and append:
+
+```json
+{
+  "my-agent": {
+    "skills": "~/.my-agent/skills",
+    "mcps": "~/.my-agent/mcp_servers"
+  }
+}
+```
+
+## License
+
 MIT
 
-Contributing
+## Contributing
+
 Issues and pull requests are welcome!

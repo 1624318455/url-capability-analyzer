@@ -1,6 +1,14 @@
-requests>=2.25.0
-beautifulsoup4>=4.9.0
-scikit-learn>=1.0.0
-# Optional for better matching:
-# sentence-transformers>=2.2.0
-# torch>=1.9.0
+# 核心依赖
+requests>=2.31.0
+beautifulsoup4>=4.12.3
+scikit-learn>=1.4.0
+numpy>=1.26.4
+
+# 可选：本地语义向量模型（如果不用 OpenAI 接口就必须这个）
+# sentence-transformers>=2.6.0
+
+# 可选：OpenAI 接口支持
+# openai>=1.13.0
+
+# 可选：配置文件管理
+# python-dotenv>=1.0.1
