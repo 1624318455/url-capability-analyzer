@@ -1,0 +1,6 @@
+requests>=2.25.0
+beautifulsoup4>=4.9.0
+scikit-learn>=1.0.0
+# Optional for better matching:
+# sentence-transformers>=2.2.0
+# torch>=1.9.0

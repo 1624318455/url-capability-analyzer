@@ -1,0 +1,38 @@
+{
+  "opencode": {
+    "skills": "~/.config/opencode/skills",
+    "mcps": "~/.config/opencode/mcp_servers"
+  },
+  "claude-code": {
+    "skills": "~/.claude/skills",
+    "mcps": "~/.claude/mcp_servers"
+  },
+  "cursor": {
+    "skills": "~/.cursor/skills",
+    "mcps": "~/.cursor/mcp_servers"
+  },
+  "openclaw": {
+    "skills": "~/.openclaw/skills",
+    "mcps": "~/.openclaw/mcp_servers"
+  },
+  "qcalw": {
+    "skills": "~/.qcalw/skills",
+    "mcps": "~/.qcalw/mcp_servers"
+  },
+  "continue": {
+    "skills": "~/.continue/skills",
+    "mcps": "~/.continue/mcp_servers"
+  },
+  "cline": {
+    "skills": "~/.cline/skills",
+    "mcps": "~/.cline/mcp_servers"
+  },
+  "github-copilot": {
+    "skills": "~/.github-copilot/skills",
+    "mcps": "~/.github-copilot/mcp_servers"
+  },
+  "aider": {
+    "skills": "~/.aider/skills",
+    "mcps": "~/.aider/mcp_servers"
+  }
+}
