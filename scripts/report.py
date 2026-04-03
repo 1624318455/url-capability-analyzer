@@ -1,38 +1,87 @@
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any
+import sys
+import os
 
 class ReportGenerator:
-    def __init__(self, template_path=None):
-        if template_path is None:
-            template_path = Path(__file__).parent.parent / "templates" / "report_template.md"
-        self.template = template_path.read_text(encoding='utf-8') if template_path.exists() else self._default_template()
-
-    def _default_template(self) -> str:
-        return """# 🔍 Capability Analysis Report
+    def __init__(self, template_path=None, use_emoji: bool = None):
+        """
+        Initialize report generator.
+        
+        Args:
+            template_path: Path to custom template file
+            use_emoji: Whether to use emoji in report. 
+                       None = auto-detect based on terminal encoding.
+                       True = always use emoji.
+                       False = never use emoji.
+        """
+        self._use_emoji = use_emoji
+        self._template_path = template_path
+        
+        # Always use default template based on emoji setting
+        # This ensures the use_emoji parameter is respected
+        self.template = self._get_default_template()
+    
+    def _should_use_emoji(self) -> bool:
+        """Determine if emoji should be used based on environment."""
+        if self._use_emoji is not None:
+            return self._use_emoji
+        
+        # Check if output is to a file
+        if not sys.stdout.isatty():
+            return True  # Assume file output supports UTF-8
+        
+        # Check Windows console encoding
+        try:
+            if sys.platform == 'win32':
+                # Get console encoding
+                import subprocess
+                result = subprocess.run(['chcp'], capture_output=True, text=True)
+                if '65001' in result.stdout:  # UTF-8 code page
+                    return True
+                return False  # GBK or other code page
+        except:
+            pass
+        
+        # Check environment variable
+        env_emoji = os.environ.get('REPORT_USE_EMOJI', '').lower()
+        if env_emoji in ('1', 'true', 'yes'):
+            return True
+        elif env_emoji in ('0', 'false', 'no'):
+            return False
+        
+        # Default to emoji for file output, no emoji for console
+        return True
+    
+    def _get_default_template(self) -> str:
+        """Get default template based on emoji setting."""
+        if self._should_use_emoji():
+            return """# [SEARCH] Capability Analysis Report
 
 **Generated:** {timestamp}
 
-## 📦 Target: {target_name} ({target_type})
+## [TARGET] Target: {target_name} ({target_type})
 
 - **URL:** {target_url}
 - **Description:** {target_desc}
+- **GitHub:** {github_url}
 
 ---
 
-## 🔄 Overlap with Local Capabilities
+## [OVERLAP] Overlap with Local Capabilities
 
 {overlap_table}
 
 ---
 
-## 🤝 Synergy Possibilities
+## [SYNERGY] Synergy Possibilities
 
 {synergy_list}
 
 ---
 
-## 💡 Recommendation
+## [RECOMMEND] Recommendation
 
 **{recommendation}**
 
@@ -40,14 +89,64 @@ class ReportGenerator:
 
 ---
 
-## 🚀 Installation Command (if applicable)
+## [INSTALL] Installation Command (if applicable)
 {install_command}
 
-text
+---
+"""
+        else:
+            return """# Capability Analysis Report
+
+**Generated:** {timestamp}
+
+## Target: {target_name} ({target_type})
+
+- **URL:** {target_url}
+- **Description:** {target_desc}
+- **GitHub:** {github_url}
+
+---
+
+## Overlap with Local Capabilities
+
+{overlap_table}
+
+---
+
+## Synergy Possibilities
+
+{synergy_list}
+
+---
+
+## Recommendation
+
+**{recommendation}**
+
+*Reason: {reason}*
+
+---
+
+## Installation Command (if applicable)
+{install_command}
+
+---
 """
 
     def generate(self, target: Dict, overlap: List[Dict], synergy: List[Dict],
                  recommendation: str, reason: str) -> str:
+        # Replace emoji in recommendation text if not using emoji
+        if not self._should_use_emoji():
+            emoji_map = {
+                "✅": "[OK]", "❌": "[NO]", "⚠️": "[WARN]",
+                "🔍": "[SEARCH]", "📦": "[TARGET]", "🔄": "[OVERLAP]",
+                "🤝": "[SYNERGY]", "💡": "[IDEA]", "🚀": "[ROCKET]",
+                "→": "->"
+            }
+            for emoji, replacement in emoji_map.items():
+                recommendation = recommendation.replace(emoji, replacement)
+                reason = reason.replace(emoji, replacement)
+        
         # Prepare overlap table
         if overlap:
             headers = ["Local Capability", "Type", "Agent", "Similarity", "Level", "Reason"]
@@ -70,14 +169,22 @@ text
             synergy_list = "No obvious synergy detected."
 
         # Install command example
-        install_cmd = f"git clone {target.get('url', '#')} ~/.config/opencode/skills/{target.get('name', 'new-skill').replace(' ', '_')}"
+        github_url = target.get('github_url')
+        if github_url:
+            install_cmd = f"git clone {github_url}\n# Or use MCP directly if available"
+        else:
+            install_cmd = f"# No git repository found. Visit: {target.get('url', '#')}"
+
+        # Get GitHub URL for display
+        github_url_display = github_url if github_url else "Not found in page"
 
         return self.template.format(
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             target_name=target.get("name", "Unknown"),
             target_type=target.get("type", "unknown"),
             target_url=target.get("url", ""),
-            target_desc=target.get("description", "")[:300],
+            target_desc=target.get("description", "")[:500],
+            github_url=github_url_display,
             overlap_table=overlap_table,
             synergy_list=synergy_list,
             recommendation=recommendation,

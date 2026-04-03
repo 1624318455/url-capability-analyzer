@@ -4,6 +4,10 @@ beautifulsoup4>=4.12.3
 scikit-learn>=1.4.0
 numpy>=1.26.4
 
+# 可选：动态网页抓取（用于 SPA 等 JavaScript 渲染的页面）
+# playwright>=1.40.0
+# playwright install chromium
+
 # 可选：本地语义向量模型（如果不用 OpenAI 接口就必须这个）
 # sentence-transformers>=2.6.0
 

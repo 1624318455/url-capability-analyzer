@@ -1,27 +1,28 @@
-# 🔍 Capability Analysis Report
+# [SEARCH] Capability Analysis Report
 
 **Generated:** {timestamp}
 
-## 📦 Target: {target_name} ({target_type})
+## [TARGET] Target: {target_name} ({target_type})
 
 - **URL:** {target_url}
 - **Description:** {target_desc}
+- **GitHub:** {github_url}
 
 ---
 
-## 🔄 Overlap with Local Capabilities
+## [OVERLAP] Overlap with Local Capabilities
 
 {overlap_table}
 
 ---
 
-## 🤝 Synergy Possibilities
+## [SYNERGY] Synergy Possibilities
 
 {synergy_list}
 
 ---
 
-## 💡 Recommendation
+## [RECOMMEND] Recommendation
 
 **{recommendation}**
 
@@ -29,7 +30,7 @@
 
 ---
 
-## 🚀 Installation Command (if applicable)
+## [INSTALL] Installation Command (if applicable)
 {install_command}
 
-text
+---
