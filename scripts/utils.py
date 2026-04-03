@@ -235,7 +235,7 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
     html_lower = html_content.lower()
     
     # Extract tools (improved patterns for MCP documentation)
-    # Pattern 1: **fetch** - description format
+    # Pattern 1: **fetch** - description format (common in MCP READMEs)
     tool_pattern1 = r'\*\*([a-zA-Z_][a-zA-Z0-9_-]*)\*\*\s*[-–—]\s*([^\n]+)'
     matches1 = re.findall(tool_pattern1, text, re.IGNORECASE)
     for tool_name, tool_desc in matches1:
@@ -264,6 +264,31 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
                         if len(parts) < 50:
                             metadata['tools'].append(parts.strip())
     
+    # Pattern 4: Look for code blocks with tool definitions
+    # Pattern like: ```typescript\n// tool: fetch\n```
+    code_tool_pattern = r'[\'"`]([a-z_][a-z0-9_]*)[\'"`]\s*:|tool["\s]+(\w+)'
+    code_matches = re.findall(code_tool_pattern, html_content, re.IGNORECASE)
+    for match in code_matches:
+        tool = match[0] or match[1]
+        if len(tool) > 2 and len(tool) < 50:
+            metadata['tools'].append(tool)
+    
+    # Pattern 5: If this is a directory listing (like mcpworld.com), extract the MCP name as primary tool
+    # and extract from description
+    page_title = soup.title.string if soup.title and soup.title.string else ""
+    if 'mcpworld' in html_lower or 'mcp' in page_title.lower():
+        # Try to extract MCP name from URL or title
+        mcp_name_match = re.search(r'/servers/([a-z0-9_-]+)', html_lower)
+        if mcp_name_match:
+            metadata['tools'].append(mcp_name_match.group(1))
+        
+        # Look for capability-related words in description that suggest tools
+        capability_words = ['获取', '抓取', 'fetch', 'scrape', '转换', 'transform', 'search', '搜索', 'api']
+        for word in capability_words:
+            if word in text_lower:
+                # Don't add single words, but note they exist
+                pass
+    
     # Remove duplicates, clean, and filter out false positives
     false_positives = {
         'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
@@ -281,22 +306,31 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'button', 'input', 'form', 'table',
         'row', 'col', 'cell', 'header', 'footer', 'body', 'head', 'title', 'meta',
         'style', 'script', 'class', 'function', 'return', 'string', 'number',
-        'boolean', 'null', 'undefined', 'object', 'array', 'true', 'false'
+        'boolean', 'null', 'undefined', 'object', 'array', 'true', 'false',
+        'world', 'home', 'mcp', 'server', 'servers', 'fetching', 'about',
+        'login', 'sign', 'register', 'menu', 'nav', 'navigation'
     }
     # Filter out single letters, common words, and very short strings
-    metadata['tools'] = [
-        tool for tool in metadata['tools'] 
-        if (tool.lower() not in false_positives and 
-            len(tool) > 2 and 
-            not tool.isdigit() and
-            not all(c.isupper() for c in tool) and  # Not all uppercase (likely HTML tags)
-            tool.lower() not in ['fetch', 'get', 'post', 'put', 'delete'] or 
-            text_lower.count(tool.lower() + ' tool') > 0 or  # Keep if explicitly mentioned as tool
-            text_lower.count(tool.lower() + '-tool') > 0 or
-            text_lower.count('tool: ' + tool.lower()) > 0 or
-            text_lower.count('tool - ' + tool.lower()) > 0
-        )
-    ]
+    # But always keep common MCP tool names
+    common_mcp_tools = {'fetch', 'search', 'scrape', 'transform', 'convert', 'analyze', 'query', 'get', 'post'}
+    
+    def is_valid_tool(tool):
+        tool_lower = tool.lower()
+        # Always keep if it's a common MCP tool
+        if tool_lower in common_mcp_tools:
+            return True
+        # Filter out false positives
+        if tool_lower in false_positives:
+            return False
+        if len(tool) <= 2:
+            return False
+        if tool.isdigit():
+            return False
+        if all(c.isupper() for c in tool) and len(tool) > 3:
+            return False
+        return True
+    
+    metadata['tools'] = [tool for tool in metadata['tools'] if is_valid_tool(tool)]
     # Remove duplicates while preserving order
     seen = set()
     filtered_tools = []
