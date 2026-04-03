@@ -66,6 +66,11 @@ class ReportGenerator:
 - **URL:** {target_url}
 - **Description:** {target_desc}
 - **GitHub:** {github_url}
+- **Author:** {author}
+- **Language:** {language}
+- **Tools:** {tools}
+- **Install Methods:** {install_methods}
+- **Tags:** {tags}
 
 ---
 
@@ -104,6 +109,11 @@ class ReportGenerator:
 - **URL:** {target_url}
 - **Description:** {target_desc}
 - **GitHub:** {github_url}
+- **Author:** {author}
+- **Language:** {language}
+- **Tools:** {tools}
+- **Install Methods:** {install_methods}
+- **Tags:** {tags}
 
 ---
 
@@ -170,21 +180,43 @@ class ReportGenerator:
 
         # Install command example
         github_url = target.get('github_url')
+        install_methods = target.get('install_methods', [])
+        
         if github_url:
-            install_cmd = f"git clone {github_url}\n# Or use MCP directly if available"
+            install_cmd_lines = [f"git clone {github_url}"]
+            if install_methods:
+                if 'uvx' in install_methods:
+                    install_cmd_lines.append(f"# Or use uvx: uvx {target.get('name', 'mcp-server').replace(' ', '-').lower()}")
+                if 'pip' in install_methods:
+                    install_cmd_lines.append(f"# Or use pip: pip install {target.get('name', 'mcp-server').replace(' ', '-').lower()}")
+                if 'npm' in install_methods:
+                    install_cmd_lines.append(f"# Or use npm: npm install {target.get('name', 'mcp-server').replace(' ', '-').lower()}")
+            install_cmd = '\n'.join(install_cmd_lines)
         else:
             install_cmd = f"# No git repository found. Visit: {target.get('url', '#')}"
 
         # Get GitHub URL for display
         github_url_display = github_url if github_url else "Not found in page"
+        
+        # Format additional metadata
+        author = target.get('author', 'Unknown')
+        language = target.get('language', 'Unknown')
+        tools = ', '.join(target.get('tools', [])[:5]) if target.get('tools') else 'Not specified'
+        install_methods_display = ', '.join(install_methods) if install_methods else 'Not specified'
+        tags = ', '.join(target.get('tags', [])[:10]) if target.get('tags') else 'None'
 
         return self.template.format(
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             target_name=target.get("name", "Unknown"),
             target_type=target.get("type", "unknown"),
-            target_url=target.get("url", ""),
-            target_desc=target.get("description", "")[:500],
             github_url=github_url_display,
+            author=author,
+            language=language,
+            tools=tools,
+            install_methods=install_methods_display,
+            tags=tags,
+            target_url=target.get("url", ""),
+            target_desc=target.get("description", "")[:2000],  # Increased limit for better content
             overlap_table=overlap_table,
             synergy_list=synergy_list,
             recommendation=recommendation,

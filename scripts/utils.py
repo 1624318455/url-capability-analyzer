@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from typing import Dict, Any, Optional
 import re
+import sys
 
 def fetch_webpage_info(url: str, use_headless_browser: bool = False) -> Dict[str, Any]:
     """Fetch and parse a webpage, extract MCP/Skill metadata."""
@@ -65,13 +66,21 @@ def _parse_html_content(html_content: str, url: str) -> Dict[str, Any]:
     # Extract GitHub URL if present
     github_url = _extract_github_url(soup, html_content)
     
+    # Extract MCP-specific metadata
+    mcp_metadata = _extract_mcp_metadata(soup, text, html_content)
+    
     return {
         "name": title,
         "type": type_,
         "url": url,
         "description": description,
         "full_text": text[:5000],  # limit length
-        "github_url": github_url
+        "github_url": github_url,
+        "tools": mcp_metadata['tools'],
+        "install_methods": mcp_metadata['install_methods'],
+        "author": mcp_metadata['author'],
+        "language": mcp_metadata['language'],
+        "tags": mcp_metadata['tags']
     }
 
 def _fix_encoding(text: str) -> str:
@@ -154,31 +163,33 @@ def _extract_description(soup: BeautifulSoup, text: str) -> str:
     # Try meta description first
     meta_desc = soup.find('meta', attrs={'name': 'description'})
     if meta_desc and meta_desc.get('content'):
-        return _fix_encoding(meta_desc['content'])[:500]
+        return _fix_encoding(meta_desc['content'])[:2000]
     
     # Try Open Graph description
     og_desc = soup.find('meta', property='og:description')
     if og_desc and og_desc.get('content'):
-        return _fix_encoding(og_desc['content'])[:500]
+        return _fix_encoding(og_desc['content'])[:2000]
     
-    # Try to find the first substantial paragraph
+    # Try to find substantial paragraphs
+    paragraphs = []
     for p in soup.find_all('p'):
         if p.string and len(p.string.strip()) > 50:
-            return _fix_encoding(p.string.strip())[:500]
+            paragraphs.append(_fix_encoding(p.string.strip()))
+    
+    if paragraphs:
+        # Return all substantial paragraphs, concatenated
+        return '\n\n'.join(paragraphs[:5])[:2000]  # First 5 substantial paragraphs
     
     # Try article or main content
     for tag_name in ['article', 'main', 'div']:
         for tag in soup.find_all(tag_name):
-            # Skip if it's too short or contains mostly navigation
             content = tag.get_text(separator=' ', strip=True)
             if len(content) > 100 and not _is_navigation_content(content):
-                # Return first substantial paragraph-like content
-                lines = [l.strip() for l in content.split('.') if len(l.strip()) > 30]
-                if lines:
-                    return _fix_encoding('. '.join(lines[:2]))[:500]
+                # Return substantial content
+                return _fix_encoding(content)[:2000]
     
     # Fallback: use cleaned text
-    cleaned_text = ' '.join(text.split())[:500]
+    cleaned_text = ' '.join(text.split())[:2000]
     return _fix_encoding(cleaned_text)
 
 def _is_navigation_content(text: str) -> bool:
@@ -209,6 +220,146 @@ def _extract_github_url(soup: BeautifulSoup, html_content: str) -> Optional[str]
         return github_match.group(0)
     
     return None
+
+def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> Dict[str, Any]:
+    """Extract MCP-specific metadata like tools, installation methods, etc."""
+    metadata = {
+        'tools': [],
+        'install_methods': [],
+        'author': None,
+        'language': None,
+        'tags': []
+    }
+    
+    text_lower = text.lower()
+    html_lower = html_content.lower()
+    
+    # Extract tools (improved patterns for MCP documentation)
+    # Pattern 1: **fetch** - description format
+    tool_pattern1 = r'\*\*([a-zA-Z_][a-zA-Z0-9_-]*)\*\*\s*[-–—]\s*([^\n]+)'
+    matches1 = re.findall(tool_pattern1, text, re.IGNORECASE)
+    for tool_name, tool_desc in matches1:
+        if len(tool_name) < 50 and len(tool_desc) > 10:
+            metadata['tools'].append(tool_name.strip())
+    
+    # Pattern 2: "tool-name - description" or "tool-name : description"
+    tool_pattern2 = r'([a-zA-Z_][a-zA-Z0-9_-]*)\s*[:\-–—]\s*([^\n]+)'
+    matches2 = re.findall(tool_pattern2, text)
+    for tool_name, tool_desc in matches2:
+        if len(tool_name) < 50 and len(tool_desc) > 10 and tool_name.lower() not in ['url', 'max_length', 'start_index', 'raw']:
+            metadata['tools'].append(tool_name.strip())
+    
+    # Pattern 3: Look for "Available tools" or "可用工具" section
+    if 'available tools' in text_lower or '可用工具' in text_lower:
+        # Find lines that mention tool names followed by descriptions
+        lines = text.split('\n')
+        for i, line in enumerate(lines):
+            if 'available tools' in line.lower() or '可用工具' in line:
+                # Check next few lines for tool definitions
+                for j in range(i+1, min(i+10, len(lines))):
+                    line_content = lines[j].strip()
+                    # Look for patterns like "tool - description"
+                    if ' - ' in line_content or ' — ' in line_content:
+                        parts = line_content.split(' - ')[0].split(' — ')[0]
+                        if len(parts) < 50:
+                            metadata['tools'].append(parts.strip())
+    
+    # Remove duplicates, clean, and filter out false positives
+    false_positives = {
+        'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+        'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+        'should', 'may', 'might', 'must', 'can', 'to', 'of', 'in', 'for',
+        'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
+        'before', 'after', 'above', 'below', 'between', 'under', 'again',
+        'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
+        'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such',
+        'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very',
+        'just', 'also', 'now', 'url', 'https', 'http', 'html', 'json', 'xml',
+        'api', 'com', 'org', 'git', 'src', 'raw', 'text', 'content', 'page',
+        'none', 'any', 'all', 'max', 'min', 'default', 'type', 'name', 'id',
+        'value', 'data', 'key', 'link', 'img', 'div', 'span', 'p', 'ul', 'li',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'button', 'input', 'form', 'table',
+        'row', 'col', 'cell', 'header', 'footer', 'body', 'head', 'title', 'meta',
+        'style', 'script', 'class', 'function', 'return', 'string', 'number',
+        'boolean', 'null', 'undefined', 'object', 'array', 'true', 'false'
+    }
+    # Filter out single letters, common words, and very short strings
+    metadata['tools'] = [
+        tool for tool in metadata['tools'] 
+        if (tool.lower() not in false_positives and 
+            len(tool) > 2 and 
+            not tool.isdigit() and
+            not all(c.isupper() for c in tool) and  # Not all uppercase (likely HTML tags)
+            tool.lower() not in ['fetch', 'get', 'post', 'put', 'delete'] or 
+            text_lower.count(tool.lower() + ' tool') > 0 or  # Keep if explicitly mentioned as tool
+            text_lower.count(tool.lower() + '-tool') > 0 or
+            text_lower.count('tool: ' + tool.lower()) > 0 or
+            text_lower.count('tool - ' + tool.lower()) > 0
+        )
+    ]
+    # Remove duplicates while preserving order
+    seen = set()
+    filtered_tools = []
+    for tool in metadata['tools']:
+        tool_lower = tool.lower()
+        if tool_lower not in seen:
+            seen.add(tool_lower)
+            filtered_tools.append(tool)
+    metadata['tools'] = filtered_tools[:10]
+    
+    # Extract installation methods
+    install_methods = []
+    if 'uvx' in html_lower or ' uv run' in html_lower:
+        install_methods.append('uvx')
+    if 'pip install' in html_lower:
+        install_methods.append('pip')
+    if 'npm install' in html_lower or 'npx' in html_lower:
+        install_methods.append('npm')
+    if 'docker' in html_lower:
+        install_methods.append('docker')
+    if '手动' in text or 'manual' in html_lower:
+        install_methods.append('manual')
+    
+    metadata['install_methods'] = list(set(install_methods))
+    
+    # Extract author
+    author_patterns = [
+        r'By\s+([A-Za-z0-9_-]+)',
+        r'作者[:\s]+([^\n]+)',
+        r'作者：\s*([^\n]+)',
+    ]
+    for pattern in author_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            metadata['author'] = match.group(1).strip()
+            break
+    
+    # Extract language
+    language_patterns = [
+        r'\b(JavaScript|TypeScript|Python|Rust|Go|Java|C\+\+)\b',
+        r'语言[:\s]+([^\n]+)',
+    ]
+    for pattern in language_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            metadata['language'] = match.group(1).strip()
+            break
+    
+    # Extract tags (from the website's tag section)
+    tag_keywords = ['网页抓取', 'HTML转换', '模型上下文协议', '内容处理', '本地部署', '网页抓取', 'A-优质']
+    found_tags = []
+    for tag in tag_keywords:
+        if tag in text:
+            found_tags.append(tag)
+    
+    # Also look for English tags
+    english_tag_pattern = r'([A-Za-z]+(?:[-][A-Za-z]+)*)\s*(?:\d+\s*)?(?:推荐|优质|必备)'
+    matches = re.findall(english_tag_pattern, text)
+    found_tags.extend(matches)
+    
+    metadata['tags'] = list(set(found_tags))[:10]
+    
+    return metadata
 
 def _fetch_with_browser(url: str, timeout: int = 30) -> Optional[str]:
     """Fetch page content using a headless browser (Playwright)."""
