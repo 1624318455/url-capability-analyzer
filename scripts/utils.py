@@ -67,7 +67,7 @@ def _parse_html_content(html_content: str, url: str) -> Dict[str, Any]:
     github_url = _extract_github_url(soup, html_content)
     
     # Extract MCP-specific metadata
-    mcp_metadata = _extract_mcp_metadata(soup, text, html_content)
+    mcp_metadata = _extract_mcp_metadata(soup, text, html_content, url)
     
     return {
         "name": title,
@@ -221,7 +221,7 @@ def _extract_github_url(soup: BeautifulSoup, html_content: str) -> Optional[str]
     
     return None
 
-def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> Dict[str, Any]:
+def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str, url: str = "") -> Dict[str, Any]:
     """Extract MCP-specific metadata like tools, installation methods, etc."""
     metadata = {
         'tools': [],
@@ -233,6 +233,38 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
     
     text_lower = text.lower()
     html_lower = html_content.lower()
+    url_lower = url.lower()
+    
+    # Define false positives for tool filtering (must be before URL extraction)
+    false_positives = {
+        'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+        'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+        'should', 'may', 'might', 'must', 'can', 'to', 'of', 'in', 'for',
+        'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
+        'before', 'after', 'above', 'below', 'between', 'under', 'again',
+        'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
+        'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such',
+        'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very',
+        'just', 'also', 'now', 'url', 'https', 'http', 'html', 'json', 'xml',
+        'api', 'com', 'org', 'git', 'src', 'raw', 'text', 'content', 'page',
+        'none', 'any', 'all', 'max', 'min', 'default', 'type', 'name', 'id',
+        'value', 'data', 'key', 'link', 'img', 'div', 'span', 'p', 'ul', 'li',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'button', 'input', 'form', 'table',
+        'row', 'col', 'cell', 'header', 'footer', 'body', 'head', 'title', 'meta',
+        'style', 'script', 'class', 'function', 'return', 'string', 'number',
+        'boolean', 'null', 'undefined', 'object', 'array', 'true', 'false',
+        'world', 'home', 'mcp', 'server', 'servers', 'fetching', 'about',
+        'login', 'sign', 'register', 'menu', 'nav', 'navigation', 'bot', 'tree',
+        'list', 'item', 'label', 'tag', 'tags', 'icon', 'image', 'avatar'
+    }
+    
+    # Extract MCP name from URL path first (most reliable for directory sites)
+    if url:
+        url_mcp_match = re.search(r'/servers/([a-z][a-z0-9_-]+)(?:/|$)', url_lower)
+        if url_mcp_match:
+            mcp_name = url_mcp_match.group(1)
+            if mcp_name not in false_positives and len(mcp_name) > 2:
+                metadata['tools'].append(mcp_name)
     
     # Extract tools (improved patterns for MCP documentation)
     # Pattern 1: **fetch** - description format (common in MCP READMEs)
@@ -273,48 +305,7 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
         if len(tool) > 2 and len(tool) < 50:
             metadata['tools'].append(tool)
     
-    # Pattern 5: If this is a directory listing (like mcpworld.com), extract the MCP name as primary tool
-    # MCP names are commonly derived from URL path on directory sites
-    page_title = soup.title.string if soup.title and soup.title.string else ""
-    if 'mcpworld' in html_lower or 'mcp' in page_title.lower():
-        # Try to extract MCP name from URL path
-        # Pattern: /servers/fetch or /mcp/fetch
-        mcp_name_patterns = [
-            r'/servers/([a-z][a-z0-9_-]+)(?:/|$)',  # /servers/fetch or /servers/fetch/
-            r'/mcp/([a-z][a-z0-9_-]+)(?:/|$)',       # /mcp/fetch
-            r'mcp[_-]?name[=:]?\s*["\']?([a-z][a-z0-9_-]+)["\']?',  # mcp_name="fetch"
-        ]
-        for pattern in mcp_name_patterns:
-            matches = re.findall(pattern, html_lower)
-            for match in matches:
-                if len(match) > 2 and len(match) < 50 and match not in false_positives:
-                    # Prefer more common MCP tool names
-                    if match.lower() not in ['tree', 'list', 'nav', 'search', 'home', 'index']:
-                        metadata['tools'].append(match)
-        
-        # If still no tools, use description keywords
-        if not metadata['tools']:
-            desc_keywords = {
-                'fetch': ['获取', '抓取', 'fetch', 'scrape', 'web'],
-                'search': ['搜索', 'search', 'find'],
-                'git': ['git', 'github'],
-            }
-            for tool, keywords in desc_keywords.items():
-                if any(kw in text_lower for kw in keywords):
-                    metadata['tools'].append(tool)
-        
-        # Extract common MCP tool names that might appear in descriptions
-        common_mcp_tool_patterns = [
-            r'(?:tool|功能)[:\s]+([a-z][a-z0-9_]+)',
-            r'([a-z]+)\s+(?:tool|功能)',
-        ]
-        for pattern in common_mcp_tool_patterns:
-            matches = re.findall(pattern, text_lower)
-            for match in matches:
-                if len(match) > 2 and match not in false_positives:
-                    metadata['tools'].append(match)
-    
-    # Remove duplicates, clean, and filter out false positives
+    # Define false positives for tool filtering
     false_positives = {
         'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
         'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
@@ -336,6 +327,7 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
         'login', 'sign', 'register', 'menu', 'nav', 'navigation', 'bot', 'tree',
         'list', 'item', 'label', 'tag', 'tags', 'icon', 'image', 'avatar'
     }
+    
     # Filter out single letters, common words, and very short strings
     # But always keep common MCP tool names
     common_mcp_tools = {'fetch', 'search', 'scrape', 'transform', 'convert', 'analyze', 'query', 'get', 'post'}
