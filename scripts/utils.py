@@ -277,17 +277,24 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
     # and extract from description
     page_title = soup.title.string if soup.title and soup.title.string else ""
     if 'mcpworld' in html_lower or 'mcp' in page_title.lower():
-        # Try to extract MCP name from URL or title
+        # Try to extract MCP name from URL path
         mcp_name_match = re.search(r'/servers/([a-z0-9_-]+)', html_lower)
         if mcp_name_match:
-            metadata['tools'].append(mcp_name_match.group(1))
+            mcp_name = mcp_name_match.group(1)
+            # Add the MCP name as a tool (it's the primary capability)
+            if len(mcp_name) > 2:
+                metadata['tools'].append(mcp_name)
         
-        # Look for capability-related words in description that suggest tools
-        capability_words = ['获取', '抓取', 'fetch', 'scrape', '转换', 'transform', 'search', '搜索', 'api']
-        for word in capability_words:
-            if word in text_lower:
-                # Don't add single words, but note they exist
-                pass
+        # Extract common MCP tool names that might appear in descriptions
+        common_mcp_tool_patterns = [
+            r'(?:tool|功能)[:\s]+([a-z][a-z0-9_]+)',
+            r'([a-z]+)\s+(?:tool|功能)',
+        ]
+        for pattern in common_mcp_tool_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                if len(match) > 2 and match not in false_positives:
+                    metadata['tools'].append(match)
     
     # Remove duplicates, clean, and filter out false positives
     false_positives = {
@@ -308,7 +315,8 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
         'style', 'script', 'class', 'function', 'return', 'string', 'number',
         'boolean', 'null', 'undefined', 'object', 'array', 'true', 'false',
         'world', 'home', 'mcp', 'server', 'servers', 'fetching', 'about',
-        'login', 'sign', 'register', 'menu', 'nav', 'navigation'
+        'login', 'sign', 'register', 'menu', 'nav', 'navigation', 'bot', 'tree',
+        'list', 'item', 'label', 'tag', 'tags', 'icon', 'image', 'avatar'
     }
     # Filter out single letters, common words, and very short strings
     # But always keep common MCP tool names
