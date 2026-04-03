@@ -274,16 +274,34 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str) -> 
             metadata['tools'].append(tool)
     
     # Pattern 5: If this is a directory listing (like mcpworld.com), extract the MCP name as primary tool
-    # and extract from description
+    # MCP names are commonly derived from URL path on directory sites
     page_title = soup.title.string if soup.title and soup.title.string else ""
     if 'mcpworld' in html_lower or 'mcp' in page_title.lower():
         # Try to extract MCP name from URL path
-        mcp_name_match = re.search(r'/servers/([a-z0-9_-]+)', html_lower)
-        if mcp_name_match:
-            mcp_name = mcp_name_match.group(1)
-            # Add the MCP name as a tool (it's the primary capability)
-            if len(mcp_name) > 2:
-                metadata['tools'].append(mcp_name)
+        # Pattern: /servers/fetch or /mcp/fetch
+        mcp_name_patterns = [
+            r'/servers/([a-z][a-z0-9_-]+)(?:/|$)',  # /servers/fetch or /servers/fetch/
+            r'/mcp/([a-z][a-z0-9_-]+)(?:/|$)',       # /mcp/fetch
+            r'mcp[_-]?name[=:]?\s*["\']?([a-z][a-z0-9_-]+)["\']?',  # mcp_name="fetch"
+        ]
+        for pattern in mcp_name_patterns:
+            matches = re.findall(pattern, html_lower)
+            for match in matches:
+                if len(match) > 2 and len(match) < 50 and match not in false_positives:
+                    # Prefer more common MCP tool names
+                    if match.lower() not in ['tree', 'list', 'nav', 'search', 'home', 'index']:
+                        metadata['tools'].append(match)
+        
+        # If still no tools, use description keywords
+        if not metadata['tools']:
+            desc_keywords = {
+                'fetch': ['获取', '抓取', 'fetch', 'scrape', 'web'],
+                'search': ['搜索', 'search', 'find'],
+                'git': ['git', 'github'],
+            }
+            for tool, keywords in desc_keywords.items():
+                if any(kw in text_lower for kw in keywords):
+                    metadata['tools'].append(tool)
         
         # Extract common MCP tool names that might appear in descriptions
         common_mcp_tool_patterns = [
