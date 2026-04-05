@@ -3,7 +3,86 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-**A smart skill for AI agents (OpenCode, Claude Code, Cursor, etc.) that automatically analyzes any MCP or Skill URL and compares it with your locally installed capabilities.**
+**A smart tool that analyzes any MCP or Skill URL and compares it with your locally installed capabilities.**
+
+## Two Modes
+
+### 1. CLI Mode (Python Script)
+```bash
+python scripts/analyze.py https://github.com/user/awesome-skill
+```
+
+### 2. MCP Server Mode (Recommended for OpenCode)
+Run as an MCP server for seamless integration with OpenCode through natural language.
+
+## MCP Server Installation
+
+### OpenCode Configuration
+
+Add to your `opencode.json`:
+
+```json
+{
+  "mcp": {
+    "capability-analyzer": {
+      "command": ["python", "path/to/url-capability-analyzer/server.py"],
+      "enabled": true
+    }
+  }
+}
+```
+
+Or use `npx` directly:
+
+```json
+{
+  "mcp": {
+    "capability-analyzer": {
+      "command": ["npx", "-y", "url-capability-analyzer"],
+      "enabled": true
+    }
+  }
+}
+```
+
+### npm Installation (Alternative)
+
+```bash
+npm install -g url-capability-analyzer
+```
+
+Then configure in your agent:
+
+```json
+{
+  "mcp": {
+    "capability-analyzer": {
+      "command": ["url-capability-analyzer"],
+      "enabled": true
+    }
+  }
+}
+```
+
+## MCP Server Tools
+
+When running as MCP server, you get these tools:
+
+| Tool | Description |
+|------|-------------|
+| `analyze_capability` | Analyze a URL and compare with local capabilities |
+| `list_local_capabilities` | List all installed Skills and MCP servers |
+| `compare_urls` | Compare multiple URLs for overlap |
+
+### Usage Examples (Natural Language)
+
+```
+"帮我分析这个MCP有没有重复：https://github.com/different-ai/opencode-scheduler"
+
+"对比这两个工具：https://... 和 https://..."
+
+"我需要哪些定时任务的MCP？列出本地已安装的"
+```
 
 ## Features
 
@@ -173,6 +252,8 @@ url-capability-analyzer/
 │   ├── matcher.py                # Similarity and synergy analysis
 │   ├── report.py                 # Report generation
 │   └── utils.py                  # Webpage fetching utilities
+├── server.py                     # MCP server entry point
+├── package.json                  # npm package configuration
 ├── templates/                    # Report templates
 │   └── report_template.md        # Markdown report template
 ├── tests/                        # Unit tests
