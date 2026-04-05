@@ -228,82 +228,13 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str, url
         'install_methods': [],
         'author': None,
         'language': None,
-        'tags': []
+        'tags': [],
+        'package_name': None
     }
     
     text_lower = text.lower()
     html_lower = html_content.lower()
     url_lower = url.lower()
-    
-    # Define false positives for tool filtering (must be before URL extraction)
-    false_positives = {
-        'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-        'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-        'should', 'may', 'might', 'must', 'can', 'to', 'of', 'in', 'for',
-        'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
-        'before', 'after', 'above', 'below', 'between', 'under', 'again',
-        'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
-        'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such',
-        'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very',
-        'just', 'also', 'now', 'url', 'https', 'http', 'html', 'json', 'xml',
-        'api', 'com', 'org', 'git', 'src', 'raw', 'text', 'content', 'page',
-        'none', 'any', 'all', 'max', 'min', 'default', 'type', 'name', 'id',
-        'value', 'data', 'key', 'link', 'img', 'div', 'span', 'p', 'ul', 'li',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'button', 'input', 'form', 'table',
-        'row', 'col', 'cell', 'header', 'footer', 'body', 'head', 'title', 'meta',
-        'style', 'script', 'class', 'function', 'return', 'string', 'number',
-        'boolean', 'null', 'undefined', 'object', 'array', 'true', 'false',
-        'world', 'home', 'mcp', 'server', 'servers', 'fetching', 'about',
-        'login', 'sign', 'register', 'menu', 'nav', 'navigation', 'bot', 'tree',
-        'list', 'item', 'label', 'tag', 'tags', 'icon', 'image', 'avatar'
-    }
-    
-    # Extract MCP name from URL path first (most reliable for directory sites)
-    if url:
-        url_mcp_match = re.search(r'/servers/([a-z][a-z0-9_-]+)(?:/|$)', url_lower)
-        if url_mcp_match:
-            mcp_name = url_mcp_match.group(1)
-            if mcp_name not in false_positives and len(mcp_name) > 2:
-                metadata['tools'].append(mcp_name)
-    
-    # Extract tools (improved patterns for MCP documentation)
-    # Pattern 1: **fetch** - description format (common in MCP READMEs)
-    tool_pattern1 = r'\*\*([a-zA-Z_][a-zA-Z0-9_-]*)\*\*\s*[-–—]\s*([^\n]+)'
-    matches1 = re.findall(tool_pattern1, text, re.IGNORECASE)
-    for tool_name, tool_desc in matches1:
-        if len(tool_name) < 50 and len(tool_desc) > 10:
-            metadata['tools'].append(tool_name.strip())
-    
-    # Pattern 2: "tool-name - description" or "tool-name : description"
-    tool_pattern2 = r'([a-zA-Z_][a-zA-Z0-9_-]*)\s*[:\-–—]\s*([^\n]+)'
-    matches2 = re.findall(tool_pattern2, text)
-    for tool_name, tool_desc in matches2:
-        if len(tool_name) < 50 and len(tool_desc) > 10 and tool_name.lower() not in ['url', 'max_length', 'start_index', 'raw']:
-            metadata['tools'].append(tool_name.strip())
-    
-    # Pattern 3: Look for "Available tools" or "可用工具" section
-    if 'available tools' in text_lower or '可用工具' in text_lower:
-        # Find lines that mention tool names followed by descriptions
-        lines = text.split('\n')
-        for i, line in enumerate(lines):
-            if 'available tools' in line.lower() or '可用工具' in line:
-                # Check next few lines for tool definitions
-                for j in range(i+1, min(i+10, len(lines))):
-                    line_content = lines[j].strip()
-                    # Look for patterns like "tool - description"
-                    if ' - ' in line_content or ' — ' in line_content:
-                        parts = line_content.split(' - ')[0].split(' — ')[0]
-                        if len(parts) < 50:
-                            metadata['tools'].append(parts.strip())
-    
-    # Pattern 4: Look for code blocks with tool definitions
-    # Pattern like: ```typescript\n// tool: fetch\n```
-    code_tool_pattern = r'[\'"`]([a-z_][a-z0-9_]*)[\'"`]\s*:|tool["\s]+(\w+)'
-    code_matches = re.findall(code_tool_pattern, html_content, re.IGNORECASE)
-    for match in code_matches:
-        tool = match[0] or match[1]
-        if len(tool) > 2 and len(tool) < 50:
-            metadata['tools'].append(tool)
     
     # Define false positives for tool filtering
     false_positives = {
@@ -325,26 +256,73 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str, url
         'boolean', 'null', 'undefined', 'object', 'array', 'true', 'false',
         'world', 'home', 'mcp', 'server', 'servers', 'fetching', 'about',
         'login', 'sign', 'register', 'menu', 'nav', 'navigation', 'bot', 'tree',
-        'list', 'item', 'label', 'tag', 'tags', 'icon', 'image', 'avatar'
+        'list', 'item', 'label', 'tag', 'tags', 'icon', 'image', 'avatar',
+        # Common markdown/Section headers that are not tools
+        'main', 'overview', 'introduction', 'installation', 'configuration', 
+        'usage', 'example', 'examples', 'available', 'tools', 'prompt', 'prompts',
+        'optionally', 'alternatively', 'recommended', 'requirements', 'license',
+        'contributing', 'security', 'warning', 'caution', 'note', 'tip',
+        'introduction', 'features', 'quickstart', 'getting', 'started'
     }
     
-    # Filter out single letters, common words, and very short strings
-    # But always keep common MCP tool names
-    common_mcp_tools = {'fetch', 'search', 'scrape', 'transform', 'convert', 'analyze', 'query', 'get', 'post'}
+    # Extract MCP name from URL path (for directory sites like mcpworld.com)
+    if url:
+        url_mcp_match = re.search(r'/servers/([a-z][a-z0-9_-]+)(?:/|$)', url_lower)
+        if url_mcp_match:
+            mcp_name = url_mcp_match.group(1)
+            if mcp_name not in false_positives and len(mcp_name) > 2:
+                metadata['tools'].append(mcp_name)
+    
+    # Extract package name from URL (e.g., mcp-server-fetch from github.com/modelcontextprotocol/servers/tree/main/src/fetch)
+    package_patterns = [
+        r'mcp[_-]server[_-]([a-z][a-z0-9_-]+)',  # mcp-server-fetch
+        r'@([a-z0-9_-]+/[a-z][a-z0-9_-]+)',       # @scope/package
+        r'pip install ([a-z0-9_-]+)',              # pip install mcp-server-fetch
+        r'npm install ([a-z0-9_-@]+)',              # npm install @scope/package
+    ]
+    for pattern in package_patterns:
+        match = re.search(pattern, url_lower + html_lower)
+        if match:
+            pkg = match.group(1)
+            if not any(fp in pkg.lower() for fp in false_positives):
+                metadata['package_name'] = pkg
+                break
+    
+    # Extract tools from markdown code block patterns: `tool_name` or "tool_name"
+    code_tool_pattern = r'`([a-z][a-z0-9_-]{2,30})`'
+    code_tools = re.findall(code_tool_pattern, text)
+    for tool in code_tools:
+        if tool.lower() not in false_positives:
+            metadata['tools'].append(tool)
+    
+    # Extract tools from **bold** patterns (MCP README style: **fetch** - description)
+    bold_tool_pattern = r'\*\*([a-z][a-z0-9_-]{2,30})\*\*\s*[-–—]'
+    bold_tools = re.findall(bold_tool_pattern, text)
+    for tool in bold_tools:
+        if tool.lower() not in false_positives:
+            metadata['tools'].append(tool)
+    
+    # Extract tools from inline code in JSON/config (tool: "name")
+    json_tool_pattern = r'tool["\s:]+["]([a-z][a-z0-9_-]{2,30})["]'
+    json_tools = re.findall(json_tool_pattern, html_content, re.IGNORECASE)
+    for tool in json_tools:
+        if tool.lower() not in false_positives:
+            metadata['tools'].append(tool)
+    
+    # Filter and deduplicate tools
+    common_mcp_tools = {'fetch', 'search', 'scrape', 'transform', 'convert', 'analyze', 'query', 'get', 'post', 'list', 'create', 'update', 'delete', 'edit', 'read', 'write'}
     
     def is_valid_tool(tool):
         tool_lower = tool.lower()
-        # Always keep if it's a common MCP tool
         if tool_lower in common_mcp_tools:
             return True
-        # Filter out false positives
         if tool_lower in false_positives:
             return False
-        if len(tool) <= 2:
-            return False
-        if tool.isdigit():
+        if len(tool) <= 2 or tool.isdigit():
             return False
         if all(c.isupper() for c in tool) and len(tool) > 3:
+            return False
+        if any(fp in tool_lower for fp in ['using', 'install', 'option', 'config', 'setting']):
             return False
         return True
     
@@ -374,21 +352,27 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str, url
     
     metadata['install_methods'] = list(set(install_methods))
     
-    # Extract author
+    # Extract author - try multiple patterns
     author_patterns = [
-        r'By\s+([A-Za-z0-9_-]+)',
+        r'github\.com/([a-zA-Z0-9_-]+)/',  # From GitHub URL
+        r'By\s+[\*\*]?([A-Za-z0-9_-]+)[\*\*]?',  # By username or **username**
         r'作者[:\s]+([^\n]+)',
         r'作者：\s*([^\n]+)',
+        r'maintainer[s]?[:\s]+([^\n]+)',
     ]
     for pattern in author_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+        match = re.search(pattern, text + ' ' + url, re.IGNORECASE)
         if match:
-            metadata['author'] = match.group(1).strip()
-            break
+            author = match.group(1).strip()
+            # Clean up author name
+            author = re.sub(r'[\*`]', '', author)
+            if author and len(author) < 50 and author.lower() not in false_positives:
+                metadata['author'] = author
+                break
     
     # Extract language
     language_patterns = [
-        r'\b(JavaScript|TypeScript|Python|Rust|Go|Java|C\+\+)\b',
+        r'\b(JavaScript|TypeScript|Python|Rust|Go|Java|C\+\+|Ruby)\b',
         r'语言[:\s]+([^\n]+)',
     ]
     for pattern in language_patterns:
@@ -398,16 +382,11 @@ def _extract_mcp_metadata(soup: BeautifulSoup, text: str, html_content: str, url
             break
     
     # Extract tags (from the website's tag section)
-    tag_keywords = ['网页抓取', 'HTML转换', '模型上下文协议', '内容处理', '本地部署', '网页抓取', 'A-优质']
+    tag_keywords = ['网页抓取', 'HTML转换', '模型上下文协议', '内容处理', '本地部署', 'A-优质']
     found_tags = []
     for tag in tag_keywords:
         if tag in text:
             found_tags.append(tag)
-    
-    # Also look for English tags
-    english_tag_pattern = r'([A-Za-z]+(?:[-][A-Za-z]+)*)\s*(?:\d+\s*)?(?:推荐|优质|必备)'
-    matches = re.findall(english_tag_pattern, text)
-    found_tags.extend(matches)
     
     metadata['tags'] = list(set(found_tags))[:10]
     

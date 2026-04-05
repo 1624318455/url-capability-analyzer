@@ -71,6 +71,7 @@ class ReportGenerator:
 - **Tools:** {tools}
 - **Install Methods:** {install_methods}
 - **Tags:** {tags}
+- **Package:** {package}
 
 ---
 
@@ -114,6 +115,7 @@ class ReportGenerator:
 - **Tools:** {tools}
 - **Install Methods:** {install_methods}
 - **Tags:** {tags}
+- **Package:** {package}
 
 ---
 
@@ -181,19 +183,41 @@ class ReportGenerator:
         # Install command example
         github_url = target.get('github_url')
         install_methods = target.get('install_methods', [])
+        package_name = target.get('package_name')
+        
+        # Generate proper install commands
+        install_cmd_lines = []
         
         if github_url:
-            install_cmd_lines = [f"git clone {github_url}"]
-            if install_methods:
-                if 'uvx' in install_methods:
-                    install_cmd_lines.append(f"# Or use uvx: uvx {target.get('name', 'mcp-server').replace(' ', '-').lower()}")
-                if 'pip' in install_methods:
-                    install_cmd_lines.append(f"# Or use pip: pip install {target.get('name', 'mcp-server').replace(' ', '-').lower()}")
-                if 'npm' in install_methods:
-                    install_cmd_lines.append(f"# Or use npm: npm install {target.get('name', 'mcp-server').replace(' ', '-').lower()}")
+            install_cmd_lines.append(f"# Git clone:")
+            install_cmd_lines.append(f"git clone {github_url}")
+        
+        # Use package_name for install commands
+        install_package = package_name
+        if not install_package:
+            # Fall back to extracting from name
+            name = target.get('name', '').replace(' ', '-').lower()
+            if name and name not in ['readme', 'unknown', 'md']:
+                install_package = name
+        
+        if install_package:
+            if 'uvx' in install_methods:
+                install_cmd_lines.append(f"# uvx (recommended):")
+                install_cmd_lines.append(f"uvx {install_package}")
+            if 'pip' in install_methods:
+                install_cmd_lines.append(f"# pip:")
+                install_cmd_lines.append(f"pip install {install_package}")
+            if 'npm' in install_methods:
+                install_cmd_lines.append(f"# npm:")
+                install_cmd_lines.append(f"npm install {install_package}")
+            if 'docker' in install_methods:
+                install_cmd_lines.append(f"# docker:")
+                install_cmd_lines.append(f"docker run -i {install_package}")
+        
+        if install_cmd_lines:
             install_cmd = '\n'.join(install_cmd_lines)
         else:
-            install_cmd = f"# No git repository found. Visit: {target.get('url', '#')}"
+            install_cmd = f"# Visit for installation: {target.get('url', '#')}"
 
         # Get GitHub URL for display
         github_url_display = github_url if github_url else "Not found in page"
@@ -215,6 +239,7 @@ class ReportGenerator:
             tools=tools,
             install_methods=install_methods_display,
             tags=tags,
+            package=package_name or 'Not specified',
             target_url=target.get("url", ""),
             target_desc=target.get("description", "")[:2000],  # Increased limit for better content
             overlap_table=overlap_table,

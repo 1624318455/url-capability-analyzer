@@ -1,18 +1,20 @@
 import math
 from typing import List, Dict, Any, Tuple, Optional
+
+SKLEARN_AVAILABLE = False
 try:
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
     SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
+except Exception:
+    pass
 
 class Matcher:
     def __init__(self, use_embedding: bool = False, embedding_model=None):
         self.use_embedding = use_embedding and (embedding_model is not None)
         self.embedding_model = embedding_model
         if not SKLEARN_AVAILABLE and not self.use_embedding:
-            raise RuntimeError("scikit-learn is required for TF‑IDF matching. Install with: pip install scikit-learn")
+            raise RuntimeError("scikit-learn is required for TF-IDF matching. Install with: pip install scikit-learn")
 
     def compute_similarity(self, text1: str, text2: str) -> float:
         """Return cosine similarity between two texts (0-1)."""
