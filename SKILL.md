@@ -1,30 +1,45 @@
 ---
 name: url-capability-analyzer
-description: Analyze a URL pointing to an MCP or Skill, compare with locally installed capabilities (across all common AI Agents), detect overlaps, suggest synergies, and recommend whether to install.
+description: Analyze a URL pointing to an MCP or Skill, compare with locally installed capabilities, detect overlaps, suggest synergies, and recommend whether to install.
 ---
 
 # URL Capability Analyzer
 
-This skill automatically fetches and analyzes any MCP or Skill webpage, then compares it against all Skills and MCPs you have installed locally (from OpenCode, Claude Code, Cursor, OpenClaw, Qcalw, Continue, Cline, GitHub Copilot, Aider, etc.).
+Analyzes any MCP or Skill URL and compares it with your locally installed capabilities.
 
-## Usage
+## Recommended: MCP Mode
 
-Just send a URL to the agent:
-Analyze this MCP: https://example.com/mcp-server
+Configure in your agent's `opencode.json`:
 
-The skill will output a structured Markdown report containing:
+```json
+{
+  "mcp": {
+    "capability-analyzer": {
+      "command": ["python", "path/to/url-capability-analyzer/server.py"],
+      "enabled": true
+    }
+  }
+}
+```
 
-- **Target introduction** (name, type, description)
-- **Overlap analysis** (table of local capabilities with similarity scores)
-- **Synergy possibilities** (how target could work with existing tools)
-- **Installation recommendation** (with ready-to-run commands)
+Then just describe what you need:
+
+```
+"帮我分析这个MCP有没有重复：https://github.com/different-ai/opencode-scheduler"
+"我需要定时任务MCP，哪个适合我？"
+```
+
+## Fallback: CLI Mode
+
+```bash
+python scripts/analyze.py https://github.com/xxx/yyy
+```
 
 ## Requirements
 
 - Python 3.8+
-- Install dependencies: `pip install requests beautifulsoup4 scikit-learn`
-- (Optional) For better semantic matching, set `OPENAI_API_KEY` or `LOCAL_EMBEDDING` environment variable.
+- `pip install requests beautifulsoup4 scikit-learn`
 
-## Implementation
+## Repository
 
-See the full open-source project at: https://github.com/yourusername/url-capability-analyzer
+https://github.com/1624318455/url-capability-analyzer
