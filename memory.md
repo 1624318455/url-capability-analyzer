@@ -83,3 +83,21 @@
 2. 添加 --verbose 参数用于详细输出
 3. 考虑添加配置文件支持
 4. 添加单元测试覆盖主要功能
+
+## 升级 2026-04-05: CLI工具升级为MCP服务器
+背景：将url-capability-analyzer从命令行工具升级为MCP服务器，实现与OpenCode的无缝集成。
+改动：
+1. 新增 server.py：MCP服务器入口，实现JSON-RPC协议
+2. 新增 package.json：支持npm/npx方式安装
+3. 更新 README.md：添加MCP安装和使用说明
+MCP工具定义：
+- analyze_capability(url, use_browser, include_embedding)：分析URL与本地能力重叠
+- list_local_capabilities(agent, type)：列出本地已安装的Skills和MCPs
+- compare_urls(urls)：比较多个URL之间的相似度
+使用方式变化：
+- CLI模式：python scripts/analyze.py <url>
+- MCP模式：自然语言如"帮我分析这个MCP有没有重复：<url>"
+经验：
+- MCP服务器使工具可以通过自然语言调用
+- 输出从文件变为对话中的JSON响应
+- 无需手动执行命令，AI Agent可直接使用
